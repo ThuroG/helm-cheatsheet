@@ -32,6 +32,24 @@
 -- Upgrade a specific version with ```helm upgrade nginx-release bitnami/nginx```
 - Sometimes helm needs administrative support for upgrade for example install something or use a password
 - Helm rollback will ONLY rollback the application and not the data!
+- If you create a helm chart it creates the structure with sample data. You still have to doit by yourself! For example the templates can be removed if you want to use yours
+- Lint the helm chart first before youinstall
+- Make sure that you have to templatize for example with the Release Name like ```{{ .Release.Name }}-app```
+- Other Template names out of the box are
+-- Release.Name / Release.Namespace / Release.IsUpgrade / Release.IsInstall / Release.Revision / Release.Service
+-- or Chartspecific templating like Chart.Name / Chart.ApiVersion / Chart.Version / Chart.Type / Chart.Keywords / Chart.Home
+-- or from K8s itself with Capabilities.KubeVersion / Capabilities.HelmVersion / Capabilities.GitCommit etc.
+-- or of course from the Values file
+
+
+# Functions
+- INFO: Helps transform an input to an output and can be used for default values
+- upper("helm) --> HELM
+- Upper Example in templating: ```{{ upper .Values.image.repository}}``` --> Output: image: NGINX
+- Quote example: ```{{ quote .Values.image.repository}}``` --> Output: image: "nginx"
+- Replace example: ```{{ replace "x" "y" .Values.image.repository }}``` --> Output: image: "nginy"
+- Default value: ```{{ default "nginx" .Values.image.repository}}``` Output: image: "nginx"
+- Using a pipe can be used for multiple sequential functions like ```{{ .Values.image.repository | upper | quote }}```--> Output: image: "NGINX"
 
 
 # Command
@@ -56,6 +74,10 @@
 - use a specific helm chart version (pay attention - this is not the app version!) with ```helm install nginx-release bitnami/nginx --version 7.1.0```
 - Display what happened for a specific release with ```helm history nginx-release```
 - Rollback to a specific Revision ```helm rollback nginx-release 1```
+- Create a helm chart with ```helm create nginx-chart```
+- Lint helps to verify if the yaml and structure is correct ```helm lint ./nginx-chart```
+- Template helps to check if templating is correctly with ```helm template ./nginx-chart --debug``` Mind that the debug shows the place where it is incorrect
+- Dry run the Helm Chart when the error was not catched by lint / template because it is K8s specific (like container instead of container*S*) with ```helm install release-name ./nginx-chart --dry-run``` Note: the dryrun flag does not install it
 
 
 
