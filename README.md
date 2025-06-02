@@ -40,6 +40,10 @@
 -- or Chartspecific templating like Chart.Name / Chart.ApiVersion / Chart.Version / Chart.Type / Chart.Keywords / Chart.Home
 -- or from K8s itself with Capabilities.KubeVersion / Capabilities.HelmVersion / Capabilities.GitCommit etc.
 -- or of course from the Values file
+- Named Templates is to reuse the same line and can be added to _helpers.tpl file: https://helm.sh/docs/chart_template_guide/named_templates/
+- You may have to use the "." so that the current scope is used (otherwise only the key will be used)
+- Instead of template you should use "include" because it is a function (unlike template which is an action) --> include can be used for pipelines
+- You may have to use the function "indent" in order to make sure that the correct indention is used for example: ```{{- include "labels" . | indent 2}}``` --> Adds two more intend at the end
 
 
 # Functions
@@ -51,6 +55,54 @@
 - Default value: ```{{ default "nginx" .Values.image.repository}}``` Output: image: "nginx"
 - Using a pipe can be used for multiple sequential functions like ```{{ .Values.image.repository | upper | quote }}```--> Output: image: "NGINX"
 
+# Conditionals, Blocks, Loops and Ranges
+- One can use conditions for example if a value is set then a certain block should be displayed like:
+```
+    {{- if .Values.orgLabel }}
+        labels:
+            org: {{ .Values.orgLabel }}
+    {{- else if eq .Values.orgLabel "hr" }}
+        labels:
+            org: human resources
+    {{- end }}
+```
+- If you add a '-' after the second curly brackets, the empty line in the output dissappears. 
+- Mit dieser technique können ganze Blocks / Kubernetes Objects generiert werden. Bsp. in values.yaml steht create: true (for service account) und der gesamte ServiceAccount.yaml Block ist in der Condition
+- Wiederholung von Hiearchien können mit ```{{- with .Values.app }}``` verkürzt werden
+- wenn eine .with Statement zu beginn genutzt wird mit einer true / false condition, kann entschieden werden ob die K8s Objekt generiert wird oder nicht ```{{- with .Values.serviceAccount.create }}```
+- Wenn innerhalb dieser Verkürzung aber etwas von Root (also '.') geholt werden muss, verwendet man ``` {{ $.Release.Name }}```
+- Eine Liste kann mit ```{{ range .Values.region }} - {{. }} {{ end }}``` mehrfach erstellt werden (derDot ist dabei die Value der liste)
+
+# Chart Hooks
+- Can be used to define another action after a certain command. For example create a backup of DB after performing "helm upgrade"
+- There are multiple phases which you can use a hook such as pre-upgrade or post-install
+- Create a hook by using a shell script and add it as a job in kubernetes
+- add the job.yaml to the Helm chart and make sure it contains the annotation "helm.sh/hook": <phase>
+- You can have multiple jobs / hooks but when you want to have an order you have to add "helm.sh/hook-weight": "number" to the annotations
+- Make sure you use the hook-delete policy otherwise it will run forever
+- Documentation: https://helm.sh/docs/topics/charts_hooks/
+
+
+# Packaging and Signing Charts
+- Use command ```helm package ./nginx-chart``` to package it so that it can be uploaded to a chart repository
+- Signing it is crucial in order to make sure that no hacker used a malicious data
+- Signing with with a private key so that it creates a provenance file
+- Create the private key with  ```gpg --quick-generate-key "Arthur Gassmann"``` (for development)
+- Upload the public key to an open pgp server
+- For production use this command: ```gpg --full-generate-key "Arthur Gassmann"```
+- Helm uses an old version of signing and therefore you may need to export the keys to the old format with ```gpg --export-secret-keys >~/.gnupg/secring.gpg```
+- Helm package can now be signed with ```helm package --sign --key 'Arthur Gassmann' --keyring ~/.gnupg/secring.gpg ./nginx-chart```
+- List the gpg keys: ```gpg --list-keys```
+- it creates a SHA512 key and can be checked now with ```sha256sum nginx-chart-0.1.0.tgz```
+- Helm can verify the signature with ```helm verify ./nginx-chart-0.1.0.tgz```
+- It will throw an error because the publickey is not with it: ```gpg --export 'Arthur Gassmann' > mypublickey```
+- Now use this: ```helm verify --keyring ./mypublickey ./gninx-0.1.0.tgz```
+- Public user canget the public key from gpg server with ```gpg --recv-keys --keyserver keyserver.ubuntu.com 8D4XXXXX```
+- Always use the verify command like ```helm install --verify nginx-chart-0.1.0```
+- The package contains of the helm chart zip (tgz), an index.yaml for repository metadata and the provenance file to check the signature. Add it to a folder.
+- To create the index.yaml you need to run``` helm repo index nginx-chart-files/ --url https://example.com/charts```
+- Upload it on any cloud service or github
+- Let the people know your URL and they have to run this: ```helm repo add our-cool-chart https://example-charts.storage.googleapis.com```
 
 # Command
 - Install a helm package with ```helm install wordpress```
